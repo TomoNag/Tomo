@@ -1,0 +1,133 @@
+﻿<Window x:Class="AsynchronousDownloader.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ダウンローダー" x:Name="MyWindow" SizeToContent="WidthAndHeight" Width="1080">
+    <Window.Resources>
+        <DataTemplate x:Key="NotDownloadedTemplate">
+            <TextBlock Text="Not Downloaded" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+        </DataTemplate>
+        <DataTemplate x:Key="DownloadedTemplate">
+            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center">
+                <Hyperlink  Command="{Binding ElementName=MyWindow, Path=DataContext.OpenFileCommand}" CommandParameter="{Binding}">
+                    フォルダを開く
+                </Hyperlink>
+            </TextBlock>
+        </DataTemplate>
+        <DataTemplate x:Key="DownloadingTemplate">
+            <StackPanel Orientation="Horizontal">
+                <ProgressBar Value="{Binding DownloadPercentage}" Minimum="0" Maximum="100" Width="200"/>
+                <TextBlock Text="{Binding DownloadPercentageString}" Margin="5,0,0,0"/>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="ErrorTemplate">
+            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center">
+                エラー
+            </TextBlock>
+        </DataTemplate>
+        <DataTemplate x:Key="FileExistsTemplate">
+            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center">
+                同名ファイルが存在します。
+            </TextBlock>
+        </DataTemplate>
+        <DataTemplate x:Key="CanceledTemplate">
+            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center">
+                キャンセルされました。
+            </TextBlock>
+        </DataTemplate>
+
+    </Window.Resources>
+    <DockPanel ScrollViewer.VerticalScrollBarVisibility="Visible" Height="600">
+        <Button DockPanel.Dock="Top" Width="150" Height="30" Margin="7" Content="リストを空に" HorizontalAlignment="Left" Click="Button_Click" >
+            
+        </Button>
+        <DataGrid x:Name="DgGrid" AutoGenerateColumns="False" ItemsSource="{Binding DownloadFiles}" CanUserAddRows="False"  ScrollViewer.VerticalScrollBarVisibility="Visible" MaxHeight="700">
+            <DataGrid.Columns>
+                <!--<DataGridTemplateColumn Header="リストから消去" Width="75">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="×" Command="{Binding ElementName=MyWindow, Path=DataContext.ClearCommand}" CommandParameter="{Binding}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>-->
+
+                <DataGridTemplateColumn Header="拡張子" >
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Extension}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="タイトル" Width="300">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Title}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="ファイル名" Width="300">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Filename}" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="ファイルサイズ" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding FileSize}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="ステータス">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ContentControl x:Name="cc" Content="{Binding}"/>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding DownloadStatus}" Value="Downloaded">
+                                    <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource DownloadedTemplate}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding DownloadStatus}" Value="Downloading">
+                                    <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource DownloadingTemplate}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding DownloadStatus}" Value="NotDownloaded">
+                                    <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource NotDownloadedTemplate}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding DownloadStatus}" Value="Error">
+                                    <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource ErrorTemplate}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding DownloadStatus}" Value="FileExists">
+                                    <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource FileExistsTemplate}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding DownloadStatus}" Value="Canceled">
+                                    <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource CanceledTemplate}"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="ダウンロード時間">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DownloadTime}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="ダウンロード速度">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DownloadSpeed}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="　　　" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="ダウンロード" Command="{Binding ElementName=MyWindow, Path=DataContext.DownloadCommand}" CommandParameter="{Binding}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>
