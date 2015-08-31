@@ -27,6 +27,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using IPCTestServer;
 using MyUtil;
+using System.Threading;
 
 namespace AsynchronousDownloader.ViewModel
 {
@@ -34,7 +35,7 @@ namespace AsynchronousDownloader.ViewModel
     {
         private static DownloadFileViewModel _viewModel;
 
-    
+
 
 
 
@@ -68,23 +69,25 @@ namespace AsynchronousDownloader.ViewModel
         public void AddFile(DownloadData data)
         {
             string extension = "";
+            string filename = data.URL.Split('/').Last();
 
             if (data.Extension != "")
             {
                 extension = data.Extension;
+                filename = filename + "." + extension;
             }
             else
             {
                 extension = Util.GetExtension(data.URL);
             }
 
-            var file = new DownloadFile { Uri = data.URL, Folder = data.Folder, Title = data.Title, Protocol = data.Protocol, Extension = extension };
+
+            var file = new DownloadFile { Uri = data.URL, Folder = data.Folder, Filename = filename, Title = data.Title, Protocol = data.Protocol, Extension = extension, Data = data };
 
 
             downloadFiles.Add(file);
 
 
-            Console.WriteLine("Success");
             OnPropertyChanged("DownloadFiles");
 
         }
@@ -103,10 +106,10 @@ namespace AsynchronousDownloader.ViewModel
             OnPropertyChanged("DownloadFiles");
         }
 
-       
 
-     
 
+
+        public RelayCommand CancelCommand { get; set; }
         public RelayCommand ClearCommand { get; set; }
         public RelayCommand DownloadCommand { get; set; }
         public RelayCommand OpenFileCommand { get; set; }
@@ -118,11 +121,12 @@ namespace AsynchronousDownloader.ViewModel
 
         private DownloadFileViewModel()
         {
+            CancelCommand = new RelayCommand(CancelDownload, CanCancel);
             DownloadCommand = new RelayCommand(Download, CanDownload);
             OpenFileCommand = new RelayCommand(OpenFile, CanOpenFile);
             ClearCommand = new RelayCommand(Clear, CanClearFile);
             DownloadFiles = new ObservableCollection<DownloadFile>();
-          
+
 
         }
 
@@ -158,7 +162,10 @@ namespace AsynchronousDownloader.ViewModel
         private void OpenFile(object obj)
         {
             var file = obj as DownloadFile;
-            Process.Start("explorer.exe", string.Format("/select,\"{0}\"", file.DownloadLocation));
+            //Process.Start("explorer.exe", string.Format("/select,\"{0}\"", file.DownloadLocation));
+            string path = System.IO.Path.GetDirectoryName(file.DownloadLocation);
+
+            Process.Start(path);
         }
 
         private bool CanOpenFile(object obj)
@@ -178,47 +185,79 @@ namespace AsynchronousDownloader.ViewModel
         }
 
 
-        private static string MakeValidFileName(string name)
-        {
-            string invalidChars = System.Text.RegularExpressions.Regex.Escape(new string(System.IO.Path.GetInvalidFileNameChars()));
-            string invalidRegStr = string.Format(@"([{0}]*\.+$)|([{0}]+)", invalidChars);
 
-            return System.Text.RegularExpressions.Regex.Replace(name, invalidRegStr, "_");
-        }
 
-       
+
         private void Download(object obj, bool checkfile)
         {
 
 
             var file = obj as DownloadFile;
 
-          
+
 
             string Folder = DownloadFolder;
             string Filename = file.Filename;
+
+            if (Filename.Contains("?"))
+            {
+                Filename = Filename.Split('?').First();
+            }
+
+
+            if (file.Protocol == "LIVE")
+            {
+                Filename = "";
+            }
+
+
             if (file.Folder != "")
             {
                 Folder = DownloadFolder + "\\" + file.Folder;
             }
 
+            int max = 50;
+
+            if (Filename != "")
+            {
+                string name = Util.RemoveExtension(Filename);
+
+                if (name.Length > max)
+                {
+                    string ext = Util.GetExtension(Filename);
+
+                    Filename = name.Substring(0, max) + "." + ext;
+
+                }
+            }
+           
+
 
             if (file.Title != "")
             {
-                int max = 50;
+               
                 if(file.Title.Length > max)
                 {
-                    Filename = file.Title.Substring(0,max) + "-" + file.Filename;
+                    Filename = file.Title.Substring(0,max) + "-" + Filename;
                 }
                 else
                 {
-                    Filename = file.Title + "-" + file.Filename;
+                    Filename = file.Title + "-" + Filename;
                 }             
               
             }
 
             //Folder = MakeValidFileName(Folder);
-            Filename = MakeValidFileName(Filename);
+            if(file.Protocol == "LIVE")
+            {
+                Encoding sjis = Encoding.GetEncoding("shift-jis");
+                Encoding unicode = Encoding.Unicode;
+                byte[] uniBytes = unicode.GetBytes(Filename);
+                byte[] jisBytes = Encoding.Convert(unicode, sjis, uniBytes);
+                Filename = sjis.GetString(jisBytes);
+            }
+
+            Filename = Util.MakeValidFileName(Filename);
 
 
             if (!Directory.Exists(Folder))
@@ -241,10 +280,6 @@ namespace AsynchronousDownloader.ViewModel
             }
 
             string location = string.Format("{0}\\{1}", Folder, Filename);
-            if(file.Extension != "")
-            {
-                location += "." + file.Extension;
-            }
 
             if(File.Exists(location))
             {
@@ -283,13 +318,54 @@ namespace AsynchronousDownloader.ViewModel
             {
                 Console.WriteLine(file.Uri);
 
-                LiveRecorder recorder = new LiveRecorder();
-                recorder.LiveRecord(location, file.Uri);
-                file.DownloadStatus = DownloadStatus.Downloading;
+
+                var recorder = new LiveDownloader();
+                recorder.LiveRecord(location, file);
+                recorder.Show();
+
+             
+
+                file.DownloadStatus = DownloadStatus.LiveDownloading;
+                file.DownloadLocation = location;
 
                 return;
             }
 
+            if (file.Protocol == "ISM")
+            {
+                Console.WriteLine(file.Uri);
+
+
+                var recorder = new ISMRecorder();
+                recorder.Record(location, file);
+                recorder.Show();
+
+
+
+                file.DownloadStatus = DownloadStatus.SilverlightDownloading;
+                file.DownloadLocation = location;
+
+                return;
+            }
+
+
+
+            if (file.Protocol == "RTMP")
+            {
+                var data = file.Data;
+              
+                string parameter = String.Format("rtmpdump -r \"{0}{1}\" -t \"{0}\" -y \"{1}\" -o {2}",
+                              data.RTMP_T, data.RTMP_Y, location);
+
+                var recorder = new RTMPRecorder();
+                recorder.Record(location, file, parameter);
+                recorder.Show();
+
+                file.DownloadStatus = DownloadStatus.RTMPDownloading;
+                file.DownloadLocation = location;
+
+                return;
+            }
 
 
             file.DownloadStatus = DownloadStatus.Downloading;
@@ -366,14 +442,26 @@ namespace AsynchronousDownloader.ViewModel
             }
 
         }
-
+        public static bool CanCancel(object obj)
+        {
+            var file = obj as DownloadFile;
+            return (obj != null && file.DownloadStatus == DownloadStatus.Downloading);
+        }
 
         private void CancelDownload(object obj)
         {
+            try
+            {
 
+                var file = obj as DownloadFile;
+                file.client.CancelAsync();
+            }
+            catch
+            {
 
-            var file = obj as DownloadFile;
-            file.client.CancelAsync();
+            }
+
+          
 
 
         }
@@ -386,13 +474,22 @@ namespace AsynchronousDownloader.ViewModel
 
             var downloadFile = (customWebClient.Data as DownloadFile);
 
+            try {
 
-            downloadFile.FileSize = string.Format("{0} MB", Math.Round((double)e.TotalBytesToReceive / 1048576, 2));
+                if (e.TotalBytesToReceive > 0)
+                {
+                    downloadFile.FileSize = string.Format("{0} MB", Math.Round((double)e.TotalBytesToReceive / 1048576, 2));
+                    downloadFile.DownloadPercentageString = string.Format("{0} %", int.Parse(Math.Truncate(((double.Parse(e.BytesReceived.ToString()) / double.Parse(e.TotalBytesToReceive.ToString())) * 100)).ToString()));
+                    downloadFile.DownloadPercentage = int.Parse(Math.Truncate(((double.Parse(e.BytesReceived.ToString()) / double.Parse(e.TotalBytesToReceive.ToString())) * 100)).ToString());
+                }
 
-            downloadFile.DownloadPercentageString = string.Format("{0} %", int.Parse(Math.Truncate(((double.Parse(e.BytesReceived.ToString()) / double.Parse(e.TotalBytesToReceive.ToString())) * 100)).ToString()));
-            downloadFile.DownloadPercentage = int.Parse(Math.Truncate(((double.Parse(e.BytesReceived.ToString()) / double.Parse(e.TotalBytesToReceive.ToString())) * 100)).ToString());
-            downloadFile.DownloadTime = string.Format("{0} s", int.Parse(Math.Truncate(customWebClient.Clock.Elapsed.TotalSeconds).ToString()));
-            downloadFile.DownloadSpeed = string.Format("{0} kb/s", (e.BytesReceived / 1024d / customWebClient.Clock.Elapsed.TotalSeconds).ToString("0.00"));
+                downloadFile.DownloadTime = string.Format("{0} s", int.Parse(Math.Truncate(customWebClient.Clock.Elapsed.TotalSeconds).ToString()));
+                downloadFile.DownloadSpeed = string.Format("{0} kb/s", (e.BytesReceived / 1024d / customWebClient.Clock.Elapsed.TotalSeconds).ToString("0.00"));
+            }
+            catch
+            {
+
+            }
         }
 
         void webClient_DownloadFileCompleted(object sender, AsyncCompletedEventArgs e)
@@ -404,11 +501,22 @@ namespace AsynchronousDownloader.ViewModel
             if (e.Cancelled)
             {
                 downloadFile.DownloadStatus = DownloadStatus.Canceled;
+
+                try
+                {
+                    System.IO.File.Delete(downloadFile.DownloadLocation);
+                }
+                catch
+                {
+                    MessageBox.Show("ファイルの削除に失敗しました。");
+                }
                 return;
             }
 
             if (e.Error != null) // We have an error! Retry a few times, then abort.
             {
+                MessageBox.Show(e.Error.Message);
+ 
                 downloadFile.DownloadStatus = DownloadStatus.Error;
                 return;
             }

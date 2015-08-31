@@ -8,12 +8,14 @@ using System.Threading.Tasks;
 using AsynchronousDownloader.ViewModel;
 
 using MyUtil;
+using IPCTestServer;
 
 namespace AsynchronousDownloader.Model
 {
     public class DownloadFile : INotifyPropertyChanged
     {
         public CustomWebClient client;
+        public DownloadData Data;
 
         private string protocol;
         public string Protocol
@@ -68,10 +70,7 @@ namespace AsynchronousDownloader.Model
             get { return uri; }
             set
             {
-                uri = value;
-                Filename = value.Split('/').Last();
-             
-               
+                uri = value;               
                 OnPropertyChanged("Uri");
             }
         }
@@ -182,6 +181,9 @@ namespace AsynchronousDownloader.Model
     public enum DownloadStatus
     {
         NotDownloaded,
+        LiveDownloading,
+        RTMPDownloading,
+        SilverlightDownloading,
         Downloading,
         Downloaded,
         FileExists,

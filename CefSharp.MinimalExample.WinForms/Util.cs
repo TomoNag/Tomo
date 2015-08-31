@@ -19,7 +19,7 @@ namespace MyUtil
     public class Util
     {
 
-        public static String[] movies = { "mp4", "mov", "wmv", "flv", "mkv", "avi" };
+        public static String[] movies = { "mp4", "webm", "ogv", "mov", "wmv", "flv", "mkv", "avi", "mpeg", "ogm", "rm", "divx" };
         public static String[] pictures = { "png", "jpg" , "jpeg" };
         public static String[] lives = { "m3u8"};
         public static String[] livedomains = { "twitcasting.tv", "ustream.tv" };
@@ -91,6 +91,13 @@ namespace MyUtil
             return false;
         }
 
+        public static string MakeValidFileName(string name)
+        {
+            string invalidChars = System.Text.RegularExpressions.Regex.Escape(new string(System.IO.Path.GetInvalidFileNameChars()));
+            string invalidRegStr = string.Format(@"([{0}]*\.+$)|([{0}]+)", invalidChars);
+
+            return System.Text.RegularExpressions.Regex.Replace(name, invalidRegStr, "_");
+        }
 
         public static string GetExtension(string url)
         {
@@ -123,7 +130,62 @@ namespace MyUtil
 
         }
 
-       
+        public static string RemoveExtension(string url)
+        {
+
+            //if (url.Contains("?"))
+            //{
+            //    int num = url.IndexOf("?");
+
+            //    url = url.Substring(0, num);
+
+
+            //}
+
+            //url = url.Split('/').Last();
+
+            if (url.Contains("."))
+            {
+                int num = url.LastIndexOf(".");
+
+                url = url.Substring(0, num);
+            }
+           
+            return url;
+
+        }
+
+
+
+        public static void DeleteFile(string filepath)
+        {
+            try
+            {
+                File.Delete(filepath);
+            }
+            catch
+            {
+
+            }
+        }
+
+        public static void DeleteAllFiles(string directorypath)
+        {
+            var list = GetFiles(directorypath);
+
+            foreach (var item in list)
+            {
+                try
+                {
+                    File.Delete(item);
+                }
+                catch
+                {
+
+                }
+            }
+          
+        }
 
         public static List<String> GetFiles(string path)
         {
@@ -137,8 +199,13 @@ namespace MyUtil
             return new List<string>();
         }
         //Shift-JIS に決め打ち
-        public static string GetHtml(string url)
+        public static string GetHtml(string url, Encoding encode = null)
         {
+            if(encode == null)
+            {
+                encode = Encoding.GetEncoding("shift_jis");
+            }
+
             string data = "";
             HttpWebRequest request = null;
             HttpWebResponse response = null;
@@ -164,7 +231,7 @@ namespace MyUtil
                     //    readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet));
                     //}
 
-                    readStream = new StreamReader(receiveStream, Encoding.GetEncoding("shift_jis"));
+                    readStream = new StreamReader(receiveStream, encode);
 
                     data = readStream.ReadToEnd();
 

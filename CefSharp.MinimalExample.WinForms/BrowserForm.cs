@@ -15,37 +15,148 @@ using System.Windows.Threading;
 using MyUtil;
 using System.Collections.Generic;
 using System.Linq;
+using System.Drawing;
+using System.Text;
+using System.Net;
 
 namespace CefSharp.MinimalExample.WinForms
 {
     public partial class BrowserForm : Form, IRequestHandler
     {
-        private readonly ChromiumWebBrowser browser;
+        private ChromiumWebBrowser browser;
 
 
         public string domain = "";
         public string fullurl = "";
+        public string homeurl = "google.co.jp";
+        public string SavedSilverLight = "";
+        public DownloadData livedata = null;
 
-      
+        public void SetLiveData(DownloadData data)
+        {
+            livedata = data;
+            button4.Enabled = true;
+            button4.BackColor = Color.Crimson;
+
+            if (checkBox1.Checked == true)
+            {
+                LiveDownload();
+            }
+        }
+
+        public void DeleteLiveData()
+        {
+            livedata = null;
+            button4.Enabled = false;
+            button4.BackColor = SystemColors.Control;
+        }
+
+        public void Download(DownloadData data)
+        {
+            //####
+            if (checkBox4.Checked)
+            {
+                data.URL = data.URL.Replace(textBox4.Text, textBox5.Text);
+            }
+
+            new Thread(() =>
+            {
+
+                client.Add(data);
+
+            }).Start();
+        }
+
+
         public bool GetAuthCredentials(IWebBrowser browser, bool isProxy, string host, int port, string realm, string scheme, ref string username, ref string password) { return true; }
         public bool OnBeforeBrowse(IWebBrowser browser, IRequest request, bool isRedirect, bool isMainFrame) { return false; }
         public bool OnBeforePluginLoad(IWebBrowser browser, string url, string policyUrl, WebPluginInfo info) { return false; }
         public CefReturnValue OnBeforeResourceLoad(IWebBrowser browser, IRequest request, bool isMainFrame)
         {
-            string url = request.Url;
 
-         
+
+            string url = request.Url;
+            //Console.WriteLine(url);
 
             string ext = Util.GetExtension(url);
             string newextension = "";
             bool found = false;
             string protocol = "HTTP";
+            //bool forcedownload = true;
 
+            //if (forcedownload == true)
             if (Util.IsLive(ext))
             {
                 protocol = "LIVE";
+                //newextension = "ts";
                 found = true;
             }
+
+            if (domain.Contains("ustream.tv"))
+            {
+                if (url.Contains(".flv?start="))
+                {
+                    Console.WriteLine(url);
+                    //http://sjc-ucdn01-comcast-tcdn.ustream.tv/sjc-uhs14/streams/httpflv/ustreamVideo/3849993/streams/live_1_1440823221_1305193735.flv?start=334
+                    string anchor = "ustreamVideo/(?<value>[^/]*?)/streams";
+
+                    string ustream = "http://iphone-streaming.ustream.tv/uhls/[ID]/streams/live/iphone/playlist.m3u8";
+                    string id = Util.Analyze(url, anchor);
+                    ustream = ustream.Replace("[ID]", id);
+
+                    url = ustream;
+                    protocol = "LIVE";
+                    found = true;
+                }
+                else if (url.Contains(".flv?e="))
+                {
+                    if (url.Contains("&fs="))
+                    {
+                        return CefReturnValue.Continue;
+                    }
+                }
+                else if (url.Contains(".flv"))
+                {
+                    return CefReturnValue.Continue;
+                }
+
+
+            }
+
+            if (checkBox3.Checked == true && found == false)
+            {
+                return CefReturnValue.Continue;
+            }
+
+
+            if (checkBox2.Checked)
+            {
+                new Thread(() =>
+                {
+                    DownloadData data = new DownloadData
+                    {
+                        URL = url,
+                        Title = this.Text,
+                        Folder = domain,
+                        Protocol = protocol,
+                        Extension = newextension
+                    };
+
+                    var gettor = new SizeGettor();
+                    gettor.data = data;
+                    gettor.client = client;
+                    gettor.Get(url);
+
+
+
+                }).Start();
+
+                //return CefReturnValue.Continue;
+
+            }
+
+
+
 
             if (Util.IsMovie(ext))
             {
@@ -58,11 +169,72 @@ namespace CefSharp.MinimalExample.WinForms
             }
 
 
-            if (domain == "twitcasting.tv" && url.Contains("/download/"))
+
+            if (domain.Contains("twitcasting.tv") && url.Contains("/download/"))
             {
                 newextension = "mp4";
                 found = true;
             }
+
+            //if (domain.Contains("twitcasting.tv") && url.Contains("/streamserver.php?mode=view"))
+            //{
+            //    if (checkBox1.Checked == true)
+            //    {
+            //        LiveDownload();
+            //        return CefReturnValue.Continue;
+            //    }
+            //}
+
+            if (url.Contains("get_player_video_info"))
+            {
+                string json = Util.GetHtml(url, Encoding.UTF8);
+                var infos = ULIZA.Uliza(json, domain);
+
+
+
+                foreach (var item in infos)
+                {
+                    Download(item);
+                }
+                  
+               
+                return CefReturnValue.Continue;
+            }
+
+            if((url.Contains(".ism") && url.Contains("Fragments(video=0)")) || ext == "ism")
+            {
+                if (url.Contains("Fragments(video=0)"))
+                {
+                    url = Util.RemoveExtension(url);
+                    url = url + ".ism/Manifest";
+                }
+
+              
+
+                if (url == SavedSilverLight)
+                {
+
+                }
+                else
+                {
+                    //http://azrvnsss.video.rakuten.co.jp/ondemand/storage001/X/Z/XZPLOPDHFS/DEhxkW_pc_sd.ism/QualityLevels(698571)/Fragments(video=0)
+                    protocol = "ISM";
+                    newextension = "mp4";
+                    found = true;
+
+                    Console.WriteLine(url);
+                }
+
+                SavedSilverLight = url;
+            }
+            //if (url.Contains("apiPassword="))
+            //{
+            //    //url.Contains("filedownload?") || 
+            //    //letv filedownload
+            //    //url.cm apiPassword
+            //    found = true;
+            //}
+
 
             if (found == true)
             {
@@ -78,12 +250,15 @@ namespace CefSharp.MinimalExample.WinForms
                 };
 
 
-                new Thread(() =>
+                if (protocol == "LIVE")
                 {
+                    this.InvokeOnUiThreadIfRequired(() => SetLiveData(data));
+                }
+                else
+                {
+                    Download(data);
+                }
 
-                    client.Add(data);
-
-                }).Start();
             }
             return CefReturnValue.Continue;
         }
@@ -92,28 +267,37 @@ namespace CefSharp.MinimalExample.WinForms
         public void OnPluginCrashed(IWebBrowser browser, string pluginPath) { }
         public void OnRenderProcessTerminated(IWebBrowser browser, CefTerminationStatus status) { }
 
+       
+
         MyClient client = new MyClient();
 
 
-
-   
-
-  
-
-        public BrowserForm()
+        public void InitializeCef()
         {
+            string firsturl = homeurl;
+            firsturl = "http://www.useragentstring.com/";
+
+            //firsturl = "http://www.tv-asahi.co.jp/douga/shinovani/22";
+            //firsturl = "http://ja.twitcasting.tv/?genre=girls_jcjk_jp";
+            //firsturl = "http://www.nhk.or.jp/ashita/hamahaha/anagodon.html";
+            //firsturl = "http://www.ustream.tv/recorded/71903408";
 
 
+            var settings = new CefSettings();
+            //settings.UserAgent = "Mozilla/5.0 (iPhone; U; CPU iPhone OS 3_0 like Mac OS X; en-us) AppleWebKit/528.18 (KHTML, like Gecko) Version/4.0 Mobile/7A341 Safari/528.16";
+            settings.CefCommandLineArgs.Add("debug-plugin-loading", "debug-plugin-loading");
+            Cef.Initialize(settings);
 
-            InitializeComponent();
+         
 
-            Text = "Movie Downloader";
-            WindowState = FormWindowState.Maximized;
-
-            browser = new ChromiumWebBrowser("http://twitcasting.tv/azuzuaazu/movie/196332866")
+            browser = new ChromiumWebBrowser(firsturl)
             {
+
                 Dock = DockStyle.Fill,
             };
+
+
+
 
             browser.RequestHandler = this;
 
@@ -132,9 +316,26 @@ namespace CefSharp.MinimalExample.WinForms
             browser.TitleChanged += OnBrowserTitleChanged;
             browser.AddressChanged += OnBrowserAddressChanged;
 
-            var bitness = Environment.Is64BitProcess ? "x64" : "x86";
-            var version = String.Format("Chromium: {0}, CEF: {1}, CefSharp: {2}, Environment: {3}", Cef.ChromiumVersion, Cef.CefVersion, Cef.CefSharpVersion, bitness);
-            DisplayOutput(version);
+            //var bitness = Environment.Is64BitProcess ? "x64" : "x86";
+            //var version = String.Format("Chromium: {0}, CEF: {1}, CefSharp: {2}, Environment: {3}", Cef.ChromiumVersion, Cef.CefVersion, Cef.CefSharpVersion, bitness);
+            //DisplayOutput(version);
+        }
+
+
+
+
+        public BrowserForm()
+        {
+
+            this.FormClosing += BrowserForm_FormClosing;
+            this.Load += BrowserForm_Load;
+
+            InitializeComponent();
+
+            Text = "Link Extractor";
+            WindowState = FormWindowState.Maximized;
+
+            InitializeCef();
 
 
             new Thread(() =>
@@ -149,21 +350,46 @@ namespace CefSharp.MinimalExample.WinForms
             //wpfwindow.Show();
         }
 
-        //private void Browser_LoadingStateChanged(object sender, LoadingStateChangedEventArgs args)
-        //{
-        //    SetCanGoBack(args.CanGoBack);
-        //    SetCanGoForward(args.CanGoForward);
+        private void BrowserForm_Load(object sender, EventArgs e)
+        {
+            Bookmark.LoadFile();
+            toolStripComboBox1.ComboBox.DataSource = Bookmark.bookmarks;
+            toolStripComboBox1.SelectedIndexChanged += ToolStripComboBox1_SelectedIndexChanged;
 
-        //    if (args.IsLoading == false)
-        //    {
-        //        NavigateCompleted();
-        //    }
+        }
+
+        private void ToolStripComboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+            var url = toolStripComboBox1.Text;
+            url = Bookmark.GetUrl(url);
+            LoadUrl(url);
+        }
+
+        private void BrowserForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+
+            Bookmark.SaveFile();
+            SizeGettor.Clear();
+        }
+
+       
+
+    //private void Browser_LoadingStateChanged(object sender, LoadingStateChangedEventArgs args)
+    //{
+    //    SetCanGoBack(args.CanGoBack);
+    //    SetCanGoForward(args.CanGoForward);
+
+    //    if (args.IsLoading == false)
+    //    {
+    //        NavigateCompleted();
+    //    }
 
 
-        //    this.InvokeOnUiThreadIfRequired(() => SetIsLoading(!args.CanReload));
-        //}
+    //    this.InvokeOnUiThreadIfRequired(() => SetIsLoading(!args.CanReload));
+    //}
 
-        private void OnBrowserNavStateChanged(object sender, NavStateChangedEventArgs args)
+    private void OnBrowserNavStateChanged(object sender, NavStateChangedEventArgs args)
         {
             SetCanGoBack(args.CanGoBack);
             SetCanGoForward(args.CanGoForward);
@@ -186,7 +412,7 @@ namespace CefSharp.MinimalExample.WinForms
             this.InvokeOnUiThreadIfRequired(() => statusLabel.Text = args.Value);
         }
 
-        
+
 
         private void OnBrowserTitleChanged(object sender, TitleChangedEventArgs args)
         {
@@ -198,6 +424,27 @@ namespace CefSharp.MinimalExample.WinForms
             Uri myUri = new Uri(args.Address);
             domain = myUri.Host;
             fullurl = args.Address;
+            SavedSilverLight = "";
+
+
+
+            this.InvokeOnUiThreadIfRequired(() => DeleteLiveData());
+
+
+            //if (domain.Contains("ustream.tv"))
+            //{
+            //    DownloadData data = new DownloadData
+            //    {
+            //        URL = "",
+            //        Title =  "",
+            //        Folder = domain,
+            //        Protocol = "LIVE",
+            //        Extension = ""
+            //    };
+
+            //    this.InvokeOnUiThreadIfRequired(() => SetLiveData(data));
+            //}
+
 
             this.InvokeOnUiThreadIfRequired(() => urlTextBox.Text = args.Address);
         }
@@ -290,25 +537,35 @@ namespace CefSharp.MinimalExample.WinForms
         bool executing = false;
         public void NavigateCompleted()
         {
-            if(executing == true)
+
+
+            if (executing == true)
             {
                 return;
             }
-
             executing = true;
-            //GetLinks();
-            Console.WriteLine("NC");
 
-            this.Invoke(new Action(() => browser.ExecuteScriptAsync(richTextBox2.Text)));
-
-
-
-            new Thread(() =>
+            try
             {
-                Thread.Sleep(100);
-                this.Invoke(new Action(() => GetLinks()));
 
-            }).Start();
+
+                this.Invoke(new Action(() => browser.ExecuteScriptAsync(richTextBox2.Text)));
+
+
+
+                new Thread(() =>
+                {
+                    Thread.Sleep(100);
+                    this.Invoke(new Action(() => GetLinks()));
+
+                }).Start();
+
+
+            }
+            catch
+            {
+
+            }
 
             new Thread(() =>
             {
@@ -316,18 +573,18 @@ namespace CefSharp.MinimalExample.WinForms
                 executing = false;
 
             }).Start();
-
         }
 
         public void GetLinks()
         {
-            try {
+            try
+            {
 
                 var task = browser.GetSourceAsync();
                 //task.Start();
                 task.Wait(1000);
 
-                if(task.IsCompleted == false)
+                if (task.IsCompleted == false)
                 {
                     return;
                 }
@@ -342,7 +599,8 @@ namespace CefSharp.MinimalExample.WinForms
                 {
                     string url = item;
 
-                    try {
+                    try
+                    {
                         Uri result = new Uri(absolute, url);
                         url = result.AbsoluteUri;
                     }
@@ -358,10 +616,12 @@ namespace CefSharp.MinimalExample.WinForms
                     bool found = false;
                     string protocol = "HTTP";
                     string ext = Util.GetExtension(url);
+                    string newextension = "";
 
                     if (Util.IsLiveURL(url))
                     {
                         protocol = "LIVE";
+                        //newextension = "ts";
                         found = true;
                     }
 
@@ -379,20 +639,26 @@ namespace CefSharp.MinimalExample.WinForms
                             Title = this.Text,
                             Folder = domain,
                             Protocol = protocol,
-                            Extension = "",
+                            Extension = newextension,
 
                         };
 
 
-                        new Thread(() =>
+                        if (protocol == "LIVE")
                         {
+                            this.InvokeOnUiThreadIfRequired(() => SetLiveData(data));
+                        }
+                        else
+                        {
+                            if (checkBox3.Checked == false)
+                            {
+                                Download(data);
+                            }
+                        }
 
-                            client.Add(data);
-
-                        }).Start();
                     }
 
-                  
+
                 }
 
                 HtmlAgilityPack.HtmlDocument doc = new HtmlAgilityPack.HtmlDocument();
@@ -429,7 +695,7 @@ namespace CefSharp.MinimalExample.WinForms
 
 
                     string ext = Util.GetExtension(url);
-                    if (Util.IsMovie(ext) || Util.IsPicture(ext))
+                    if ((Util.IsMovie(ext) || Util.IsPicture(ext)) && checkBox3.Checked == false)
                     {
                         DownloadData data = new DownloadData
                         {
@@ -442,19 +708,14 @@ namespace CefSharp.MinimalExample.WinForms
                         };
 
 
-                        new Thread(() =>
-                        {
-
-                            client.Add(data);
-
-                        }).Start();
+                        Download(data);
                     }
                 }
                 richTextBox1.Text = links;
             }
             catch
             {
-               
+
             }
         }
         private void button1_Click(object sender, EventArgs e)
@@ -549,6 +810,82 @@ namespace CefSharp.MinimalExample.WinForms
         private void timer1_Tick(object sender, EventArgs e)
         {
             TimerTick();
+        }
+
+        public void LiveDownload()
+        {
+            if (livedata != null)
+            {
+                livedata.Extension = textBox3.Text;
+                livedata.Title = this.Text;
+
+                new Thread(() =>
+                {
+                    client.Add(livedata);
+
+                }).Start();
+            }
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            LiveDownload();
+        }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+            var visitor = new CookieMonster(all_cookies =>
+            {
+                var sb = new StringBuilder();
+                foreach (var nameValue in all_cookies)
+                    sb.AppendLine(nameValue.Item1 + " = " + nameValue.Item2);
+                BeginInvoke(new MethodInvoker(() =>
+                {
+                    MessageBox.Show(sb.ToString());
+                }));
+            });
+            Cef.VisitAllCookies(visitor);
+        }
+
+        class CookieMonster : ICookieVisitor
+        {
+            readonly List<Tuple<string, string>> cookies = new List<Tuple<string, string>>();
+            readonly Action<IEnumerable<Tuple<string, string>>> useAllCookies;
+
+            public CookieMonster(Action<IEnumerable<Tuple<string, string>>> useAllCookies)
+            {
+                this.useAllCookies = useAllCookies;
+            }
+
+            public bool Visit(Cookie cookie, int count, int total, ref bool deleteCookie)
+            {
+                cookies.Add(new Tuple<string, string>(cookie.Name, cookie.Value));
+
+                if (count == total - 1)
+                    useAllCookies(cookies);
+
+                return true;
+            }
+        }
+
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void toolStripButton2_Click(object sender, EventArgs e)
+        {
+            LoadUrl(Bookmark.GetUrl(toolStripComboBox1.Text));
+        }
+
+        private void toolStripButton3_Click(object sender, EventArgs e)
+        {
+            LoadUrl(homeurl);
+        }
+
+        private void toolStripButton1_Click(object sender, EventArgs e)
+        {
+            Bookmark.Add(browser.Title, fullurl);
         }
     }
 }

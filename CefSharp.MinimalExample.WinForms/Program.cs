@@ -12,7 +12,8 @@ namespace CefSharp.MinimalExample.WinForms
         [STAThread]
         public static void Main()
         {
-            Cef.Initialize(new CefSettings());
+            //Cef.Initialize(new CefSettings());
+           
 
             var browser = new BrowserForm();
             Application.Run(browser);

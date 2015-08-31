@@ -1,7 +1,7 @@
 ﻿<Window x:Class="AsynchronousDownloader.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="ダウンローダー" x:Name="MyWindow" SizeToContent="WidthAndHeight" Width="1080">
+        Title="ダウンローダー" x:Name="MyWindow" SizeToContent="Width" Height="720">
     <Window.Resources>
         <DataTemplate x:Key="NotDownloadedTemplate">
             <TextBlock Text="Not Downloaded" VerticalAlignment="Center" HorizontalAlignment="Center"/>
@@ -18,6 +18,21 @@
                 <ProgressBar Value="{Binding DownloadPercentage}" Minimum="0" Maximum="100" Width="200"/>
                 <TextBlock Text="{Binding DownloadPercentageString}" Margin="5,0,0,0"/>
             </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="LiveDownloadingTemplate">
+            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center">
+                ストリーム保存中です。
+            </TextBlock>
+        </DataTemplate>
+        <DataTemplate x:Key="RTMPDownloadingTemplate">
+            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center">
+                RTMP保存中です。
+            </TextBlock>
+        </DataTemplate>
+        <DataTemplate x:Key="SilverlightDownloadingTemplate">
+            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center">
+                シルバーライト保存中です。
+            </TextBlock>
         </DataTemplate>
         <DataTemplate x:Key="ErrorTemplate">
             <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -36,19 +51,19 @@
         </DataTemplate>
 
     </Window.Resources>
-    <DockPanel ScrollViewer.VerticalScrollBarVisibility="Visible" Height="600">
+    <DockPanel ScrollViewer.VerticalScrollBarVisibility="Visible">
         <Button DockPanel.Dock="Top" Width="150" Height="30" Margin="7" Content="リストを空に" HorizontalAlignment="Left" Click="Button_Click" >
             
         </Button>
-        <DataGrid x:Name="DgGrid" AutoGenerateColumns="False" ItemsSource="{Binding DownloadFiles}" CanUserAddRows="False"  ScrollViewer.VerticalScrollBarVisibility="Visible" MaxHeight="700">
+        <DataGrid x:Name="DgGrid" AutoGenerateColumns="False" ItemsSource="{Binding DownloadFiles}" CanUserAddRows="False"  ScrollViewer.VerticalScrollBarVisibility="Visible" >
             <DataGrid.Columns>
-                <!--<DataGridTemplateColumn Header="リストから消去" Width="75">
+                <DataGridTemplateColumn Header="キャンセル" Width="75">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="×" Command="{Binding ElementName=MyWindow, Path=DataContext.ClearCommand}" CommandParameter="{Binding}"/>
+                            <Button Content="×" Command="{Binding ElementName=MyWindow, Path=DataContext.CancelCommand}" CommandParameter="{Binding}"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>-->
+                </DataGridTemplateColumn>
 
                 <DataGridTemplateColumn Header="拡張子" >
                     <DataGridTemplateColumn.CellTemplate>
@@ -89,6 +104,15 @@
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding DownloadStatus}" Value="Downloading">
                                     <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource DownloadingTemplate}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding DownloadStatus}" Value="LiveDownloading">
+                                    <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource LiveDownloadingTemplate}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding DownloadStatus}" Value="RTMPDownloading">
+                                    <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource RTMPDownloadingTemplate}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding DownloadStatus}" Value="SilverlightDownloading">
+                                    <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource SilverlightDownloadingTemplate}"/>
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding DownloadStatus}" Value="NotDownloaded">
                                     <Setter TargetName="cc" Property="ContentTemplate" Value="{DynamicResource NotDownloadedTemplate}"/>

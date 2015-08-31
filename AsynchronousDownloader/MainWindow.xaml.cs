@@ -44,65 +44,66 @@ namespace AsynchronousDownloader
            
         }
 
-        public void AddUrl(string temp, string folder = "", string title = "")
-        {
+        //public void AddUrl(string temp, string folder = "", string title = "")
+        //{
            
 
-            var list = temp.Split('\n');
+        //    var list = temp.Split('\n');
 
-            foreach (var item in list)
-            {
-                Uri uriResult;
+        //    foreach (var item in list)
+        //    {
+        //        Uri uriResult;
 
 
-                var list2 = item.Split('\t');
-                string url = list2[0];
+        //        var list2 = item.Split('\t');
+        //        string url = list2[0];
 
-                bool result = Uri.TryCreate(url, UriKind.Absolute, out uriResult);
-                if (result == false)
-                {
-                    continue;
-                }
+        //        bool result = Uri.TryCreate(url, UriKind.Absolute, out uriResult);
+        //        if (result == false)
+        //        {
+        //            continue;
+        //        }
 
-                if (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps)
-                {
-                    //string ext = Util.GetExtension(url);
-                    //if (Util.IsMovie(ext) || Util.IsPicture(ext))
-                    {
-                        //Console.WriteLine(temp);
-                        _dispatcher.BeginInvoke(new Action(() =>
-                        {
-                            string protocol = "HTTP";
-                            string ext = Util.GetExtension(url);
-                            if(Util.IsLive(ext))
-                            {
-                                protocol = "LIVE";
-                            }
-                            DownloadData data = new DownloadData
-                            {
-                                URL = url,
-                                Folder = folder,
-                                Title = title,
-                                Protocol = protocol
+        //        if (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps)
+        //        {
+        //            //string ext = Util.GetExtension(url);
+        //            //if (Util.IsMovie(ext) || Util.IsPicture(ext))
+        //            {
+        //                //Console.WriteLine(temp);
+        //                _dispatcher.BeginInvoke(new Action(() =>
+        //                {
+        //                    string protocol = "HTTP";
+        //                    string ext = Util.GetExtension(url);
+        //                    if(Util.IsLive(ext))
+        //                    {
+        //                        protocol = "LIVE";
+        //                    }
+        //                    DownloadData data = new DownloadData
+        //                    {
+        //                        URL = url,
+        //                        Folder = folder,
+        //                        Title = title,
+        //                        Protocol = protocol
                            
-                            };
+        //                    };
 
 
-                            viewmodel.AddFile(data);
+        //                    viewmodel.AddFile(data);
 
-                        }), (DispatcherPriority)10);
-                    }
-                }
+        //                }), (DispatcherPriority)10);
+        //            }
+        //        }
 
 
-            }
+        //    }
            
-        }
+        //}
 
         public MainWindow()
         {
 
             InitializeComponent();
+            this.Closing += MainWindow_Closing;
             viewmodel = DownloadFileViewModel.SharedViewModel(); ;
             this.DataContext = viewmodel;
 
@@ -118,23 +119,23 @@ namespace AsynchronousDownloader
 
             }).Start();
 
-            if (false)
-            {
-                cbw = new ClipBoardWatcher();
-                cbw.DrawClipBoard += (sender, e) =>
-                {
+            //if (false)
+            //{
+            //    cbw = new ClipBoardWatcher();
+            //    cbw.DrawClipBoard += (sender, e) =>
+            //    {
 
 
 
-                    if (Clipboard.ContainsText())
-                    {
-                        string temp = Clipboard.GetText();
-                        AddUrl(temp);
+            //        if (Clipboard.ContainsText())
+            //        {
+            //            string temp = Clipboard.GetText();
+            //            AddUrl(temp);
 
 
-                    }
-                };
-            }
+            //        }
+            //    };
+            //}
 
             System.Windows.Threading.DispatcherTimer dispatcherTimer = new System.Windows.Threading.DispatcherTimer();
             dispatcherTimer.Tick += dispatcherTimer_Tick;
@@ -142,10 +143,12 @@ namespace AsynchronousDownloader
             dispatcherTimer.Start();
         }
 
-      
+        private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            ISMRecorder.Clear();
+        }
 
-
-　　　　private void dispatcherTimer_Tick(object sender, EventArgs e)
+        private void dispatcherTimer_Tick(object sender, EventArgs e)
         {
             viewmodel.AutoDownload(3);
             // code goes here

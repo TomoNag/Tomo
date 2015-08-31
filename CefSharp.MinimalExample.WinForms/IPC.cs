@@ -15,6 +15,9 @@ namespace IPCTestServer
         public string Title { get; set; }
         public string Protocol { get; set; }
         public string Extension { get; set; }
+
+        public string RTMP_T { get; set; }
+        public string RTMP_Y { get; set; }
     }
 
     [ServiceContract]
